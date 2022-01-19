@@ -84,6 +84,18 @@ class NimTree:
     def get_leaf_labels(self):
         return [node.label for node in self.leaf_nodes]
     
+    def get_leaf_labels_player1(self):
+        p1leaves = filter(lambda node: node.isPlayer1Outcome(), self.leaf_nodes)
+        return [leaf.label for leaf in p1leaves]
+    
+    def get_leaf_labels_player2(self):
+        p1leaves = filter(lambda node: node.isPlayer2Outcome(), self.leaf_nodes)
+        return [leaf.label for leaf in p1leaves]
+    
+    def get_leaf_labels_of_ply(self, ply):
+        plyLeaves = filter(lambda node: node.get_ply() == ply, self.leaf_nodes)
+        return [leaf.label for leaf in plyLeaves]
+        
     def get_state_by_label(self, label):
         if label in self.states_by_label:
             return self.states_by_label[label]
@@ -102,3 +114,4 @@ class NimTree:
             sequence.append(next_state)
             fetch_label += '.'
         return sequence
+    

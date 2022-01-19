@@ -77,6 +77,26 @@ class NimState:
 
         """
         return self.heaps.count(0) == len(self.heaps)
+    
+    def get_ply(self):
+        """
+        Get the ply of this game state - this relies on label being
+        dot-separated
+
+        Returns
+        -------
+        The ply (game round) of this - 0 for root, 1 for player 1's first turn,
+        2 for player 2's first turn, 3 for player 1's second turn, etc.
+
+        """
+        return self.label.count('.')
+    
+    def isPlayer1Outcome(self):
+        return self.get_ply() % 2 == 1
+    
+    def isPlayer2Outcome(self):
+        ply = self.get_ply()
+        return ply > 0 and ply % 2 == 0
         
     def get_binary_heap_strings(self):
         """
