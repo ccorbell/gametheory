@@ -3,7 +3,7 @@
 """
 Created on Tue Jan 18 12:45:27 2022
 
-@author: mathaes
+@author: Christopher Corbell
 """
 
 __all__ = ["hexboard", "hextree"]

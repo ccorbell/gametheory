@@ -3,7 +3,7 @@
 """
 Created on Tue Jan 18 23:08:28 2022
 
-@author: mathaes
+@author: Christopher Corbell
 """
 import random
 

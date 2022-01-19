@@ -3,7 +3,7 @@
 """
 Created on Tue Jan 18 12:45:15 2022
 
-@author: mathaes
+@author: Christopher Corbell
 """
 
 class HexTree:
