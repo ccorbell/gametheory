@@ -5,6 +5,7 @@ Created on Tue Jan 18 12:44:53 2022
 
 @author: mathaes
 """
+import copy
 
 class HexBoard:
     """
@@ -29,6 +30,7 @@ class HexBoard:
         self.size = size
         self.first_player = first_player
         self.lr_player = lr_player
+        self.label = '0'
         self.clear()
     
         
@@ -36,7 +38,7 @@ class HexBoard:
         strrep = ''
         for row in range(0, self.size):
             if row == int(self.size / 2):
-                strrep += self.i_player
+                strrep += self.lr_player
                 strrep += ' ' * (row)
             else:
                 strrep += ' ' * (row + 1)
@@ -48,7 +50,23 @@ class HexBoard:
                     strrep += ' '
                     
             strrep += '\n'
+            
+        if None != self.label:
+            strrep += f"({self.label})\n"
+                
         return strrep
+    
+    def __copy__(self):
+        clone = HexBoard()
+        clone.size = self.size
+        clone.first_player = self.first_player
+        clone.lr_player = self.lr_player
+        clone.board = copy.deepcopy(self.board)
+        clone.label = self.label
+        return clone
+        
+    def copy(self):
+        return copy.copy(self)
     
     def getTileValue(self, row, col):
         if row < 0 or col < 0 or row >= self.size or col >= self.size:
@@ -57,6 +75,9 @@ class HexBoard:
         return self.board[row][col]
     
     def playX(self, row, col):
+        if self.getNextPlayer() != self.X_TOKEN:
+            raise Exception("playX called but next player is not X")
+            
         cur = self.getTileValue(row, col)
         if not HexBoard.EMPTY_TOKEN == cur:
             raise Exception(f"Coordinate ({row},{col}) is {cur} (not unset).")
@@ -64,11 +85,65 @@ class HexBoard:
         self.board[row][col] = HexBoard.X_TOKEN
     
     def playO(self, row, col):
+        if self.getNextPlayer() != self.O_TOKEN:
+            raise Exception("playX called but next player is not X")
+            
         cur = self.getTileValue(row, col)
         if not HexBoard.EMPTY_TOKEN == cur:
             raise Exception(f"Coordinate ({row},{col}) is {cur} (not unset).")
         
         self.board[row][col] = HexBoard.O_TOKEN
+        
+    def getSelfPlayer(self):
+        """
+        Determine which player played last for the current board state.
+
+        Returns
+        -------
+        Either TOKEN_X or TOKEN_O, unless the board is empty 
+        in which case it returns TOKEN_EMPTY
+
+        """
+        xcount = self.countXTiles()
+        ocount = self.countOTiles()
+        
+        if self.first_player == HexBoard.O_TOKEN:
+            if xcount == ocount:
+                return HexBoard.X_TOKEN
+            elif xcount == ocount-1:
+                return HexBoard.O_TOKEN
+            else:
+                raise Exception(f"Bad board state: O goes first but there are {ocount} O tiles and {xcount} X tiles")
+
+        elif self.first_player == HexBoard.X_TOKEN:
+            if xcount == ocount:
+                return HexBoard.O_TOKEN
+            elif ocount == xcount-1:
+                return HexBoard.X_TOKEN
+            else:
+                raise Exception(f"Bad board state: X goes first but there are {ocount} O tiles and {xcount} X tiles")
+                
+        return HexBoard.EMPTY_TOKEN
+        
+    def getNextPlayer(self):
+        """
+        Determine which player plays next from the current board state.
+
+        Returns
+        -------
+        Either TOKEN_X or TOKEN_O, unless the game is over
+        in which case it returns TOKEN_EMPTY
+
+        """
+        if self.isGameOver():
+            return HexBoard.EMPTY_TOKEN
+        cur = self.getSelfPlayer()
+        if cur == HexBoard.O_TOKEN:
+            return HexBoard.X_TOKEN
+        elif cur == HexBoard.X_TOKEN:
+            return HexBoard.O_TOKEN
+        
+        return HexBoard.EMPTY_TOKEN
     
     def clear(self):
         self.board = []
@@ -83,6 +158,24 @@ class HexBoard:
                 if cur == value:
                     coords.append([i, j])
         return coords
+    
+    def countXTiles(self):
+        return self.countTiles(HexBoard.X_TOKEN)
+    
+    def countOTiles(self):
+        return self.countTiles(HexBoard.O_TOKEN)
+    
+    def countEmptyTiles(self):
+        return self.countTiles(HexBoard.EMPTY_TOKEN)
+    
+    def countTiles(self, value):
+        count = 0
+        for i in range(0, self.size):
+            for j in range(0, self.size):
+                cur = self.getTileValue(i, j)
+                if cur == value:
+                    count += 1
+        return count
     
     def getXTiles(self):
         return self.getTileCoordinatesOfValue(HexBoard.X_TOKEN)
@@ -221,6 +314,9 @@ class HexBoard:
         return False
     
     def isGameOver(self):
+        if self.countEmptyTiles() == 0:
+            return True
+        
         return self.isXWin() or self.isOWin()
     
     
