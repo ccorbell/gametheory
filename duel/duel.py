@@ -8,8 +8,41 @@ Created on Tue Jan 25 14:12:37 2022
 
 from duel.duelist import Duelist
 from prob.pfunc import PFunc, LinearRangePFunc
+import time
 
+class Strategy:
+    """
+    A duel.Strategy dictates how players will decide to step vs. fire in a game.
+    
+    In optimal strategy, whenever sum of players' aim probabilities is 1 or greater,
+    either player will choose to fire.
+    
+    In threshold strategy, each player has a (possibly different) probability
+    threshold for when they will choose to fire.
+    """
+
+    # Type constants:
+    OPTIMAL = 1 # fire when sum of aim probabiities is 1
+    THRESHOLD = 2 # fire with per-player probability threshold is crossed
+    
+    def __init__(self, strategyType:int, 
+                 player1value=None, 
+                 player2value=None):
+        self.type = strategyType
+        self.player1value = player1value
+        self.player2value = player2value
+        
+    def shouldFire(self, player1chance, player2chance, playerIndex):
+        if self.type == Strategy.OPTIMAL:
+            return player1chance + player2chance >= 1.0
+        elif self.type == Strategy.THRESHOLD:
+            if playerIndex == 0:
+                return player1chance >= self.player1value
+            elif playerIndex == 1:
+                return player2chance >= self.player2value
+    
 class Duel:
+    
     """
     Duel is a turn-based game where two duelists take turns deciding to either
     take a step forward or aim and fire. Aim is implemented as a probabilistic 
@@ -21,10 +54,15 @@ class Duel:
     
     
     """
+    
+    
+            
     def __init__(self, 
                  distance=20,
                  player1func: PFunc = None,
-                 player2func: PFunc = None):
+                 player2func: PFunc = None,
+                 verbose=True, # set true to see more game play-by-play
+                 dramaTiming=True): # set true to see pauses in game output
         self.minPos = 0
         self.maxPos = distance
 
@@ -40,123 +78,181 @@ class Duel:
         self.gameOver = False
         self.winnerIndex = -1
         
+        self.verbose = verbose
+        self.dramaTiming = dramaTiming
+        
     def resetGame(self):
         self.gameRound = 0
         self.players[0].position = 0
         self.players[1].position = self.maxPos
         self.gameOver = False
         
-    def runAimChanceThesholdGame(self, player1Threshold = 0.6, player2Threshold = 0.5):
+        
+    def runGameWithStrategy(self, strategy):
         self.resetGame()
         
         self.players[0].position = self.minPos
         self.players[1].position = self.maxPos
         
-        print ("*** CLOWN PIE DUEL ***")
-        print (f"{self.players[0].name} vs. {self.players[1].name} square off,")
-        print (f"  pies in hand, at {self.maxPos - self.minPos} paces.\n")
-        
-        print ("The duel begins...")
+        if self.verbose:
+            print ("*** CLOWN PIE DUEL ***")
+            print (f"{self.players[0].name} vs. {self.players[1].name} square off,")
+            print (f"  pies in hand, at {self.maxPos - self.minPos} paces.\n")
+            
+            print ("The duel begins...")
         
         while not self.gameOver:
+            
             
             playerIndex = self.gameRound % 2
             opponentIndex = (playerIndex +  1) % 2
             
+            aimChances = [self.players[0].currentChance(self.players[1].position),
+                          self.players[1].currentChance(self.players[0].position)]
+            
+            timeToFire = strategy.shouldFire(aimChances[0], aimChances[1], playerIndex)
+            
             player = self.players[playerIndex]
             opponent = self.players[opponentIndex]
             
-            # see if player is at their aim chance threshold
-            chanceCheck = player.currentChance(opponent.position)
-            threshold = player1Threshold
-            if playerIndex == 1:
-                threshold = player2Threshold
-                
-            #print (f"DEBUG: chanceCheck is {chanceCheck}, threoshold is {threshold}")
-            timeToFire = chanceCheck >= threshold
             if timeToFire:
-                
-                print (f"\n{player.name} LAUNCHES A PIE!")
-                print (f" ({player.name}'s chance of hitting is {player.currentChance(opponent.position)*100:.2f} %)")
+                if self.verbose:
+                    print (f"\n{player.name} LAUNCHES A PIE!")
+                    print (f" ({player.name}'s chance of hitting is {player.currentChance(opponent.position)*100:.2f} %)\n")
                 fireResult = player.fire(opponent.position)
                 
+                if self.dramaTiming:
+                    time.sleep(0.5)
+                    
                 if True == fireResult:
-                    print (f"{player.name} has hit their opponent.")
+                    if self.verbose:
+                        print (f"{player.name} has hit their opponent.")
                     self.winnerIndex = playerIndex
                 else:
-                    print (f"{player.name} has missed their opponent.")
+                    if self.verbose:
+                        print (f"{player.name} has missed their opponent.")
                     self.winnerIndex = opponentIndex
+                
+                if self.dramaTiming:
+                    time.sleep(1)
+                    
                 self.gameOver = True
             else:
                 stepIncrement = 1
                 if playerIndex == 1:
                     stepIncrement = -1
-                print(f"{player.name} takes a step forward.")
+                if self.verbose:
+                    print(f"{player.name} takes a step forward.\n")
+                    
+                if self.dramaTiming:
+                    time.sleep(0.5)
+                    
                 player.step(stepIncrement)
                 
             self.gameRound += 1
             
         loserIndex = (self.winnerIndex + 1) % 2
         
-        print(f"\nThe duel ends after {self.gameRound} turns.")
-        print(f"The mighty {self.players[self.winnerIndex].name} is victorious.")
-        print(f"Sad clown {self.players[loserIndex].name} is weeping through layers of pie.")
-        print("\nFinal positions:")
-        print(self.players[0])
-        print(self.players[1])
+        if self.verbose:
+            print(f"\nThe duel ends after {self.gameRound} turns.")
+            print(f"{self.players[self.winnerIndex].name} is victorious.")
+            print(f"{self.players[loserIndex].name} is weeping through layers of pie.")
+            print("\nFinal positions:")
+            print(self.players[0])
+            print(self.players[1])
+            
+        return {"winner": self.winnerIndex,
+                "gameRound": self.gameRound}
+    
+        
+    def runAimChanceThresholdGame(self, player1Threshold = 0.6, player2Threshold = 0.5):
+        strategy = Strategy(Strategy.THRESHOLD, player1Threshold, player2Threshold)
+        return self.runGameWithStrategy(strategy)
         
     def runOptimalStrategyGame(self):
-        self.resetGame()
+        strategy = Strategy(Strategy.OPTIMAL)
+        return self.runGameWithStrategy(strategy)
+    
+    def runAimThresholdStrategyTrials(self, 
+                                      player1Threshold=0.6, 
+                                      player2Threshold=0.5,
+                                      numberOfTrials=1000):
+        """
+        Run a number of duels using the aim-threshold strategy.
+        This turns off the verbose and dramaTiming flags, if set
+        (and restores them afterward).
+
+        Parameters
+        ----------
+        player1Threshold : float
+            The aim probability threshold above which player 1 will fire.
+        player2Threshold : float
+            The aim probability threshold above which player 2 will fire.
+        numberOfTrials : int, optional
+            The number of trials to run. The default is 1000.
+
+        Returns
+        -------
+        A dictionary with they keys:
+            "count" - total duels run
+            "player1wins" - total number of player 1 wins
+
+        """
+        wasVerbose = self.verbose
+        wasDramaTiming = self.dramaTiming
         
-        self.players[0].position = self.minPos
-        self.players[1].position = self.maxPos
+        self.verbose = False
+        self.dramaTiming = False
         
-        print ("*** CLOWN PIE DUEL ***")
-        print (f"{self.players[0].name} vs. {self.players[1].name} square off,")
-        print (f"  pies in hand, at {self.maxPos - self.minPos} paces.\n")
+        count = 0
+        player1wins = 0
         
-        print ("The duel begins...")
-        
-        while not self.gameOver:
+        for n in range(0, numberOfTrials):
+            results = self.runAimChanceThresholdGame(player1Threshold, player2Threshold)
+            if results["winner"] == 0:
+                player1wins += 1
+            count += 1
             
-            playerIndex = self.gameRound % 2
-            opponentIndex = (playerIndex +  1) % 2
-            
-            player = self.players[playerIndex]
-            opponent = self.players[opponentIndex]
-            
-            # see if we are at/past optimal strategy (sum of 1.0 aim chance), if so, fire
-            totalChance = player.currentChance(opponent.position) + opponent.currentChance(player.position)
-            #print (f"DEBUG: totalChance is {totalChance}")
-            timeToFire = totalChance >= 1.0
-            if timeToFire:
-                
-                print (f"\n{player.name} LAUNCHES A PIE!")
-                print (f" ({player.name}'s chance of hitting is {player.currentChance(opponent.position)*100:.2f} %)")
-                fireResult = player.fire(opponent.position)
-                
-                if True == fireResult:
-                    print (f"{player.name} has hit their opponent.")
-                    self.winnerIndex = playerIndex
-                else:
-                    print (f"{player.name} has missed their opponent.")
-                    self.winnerIndex = opponentIndex
-                self.gameOver = True
-            else:
-                stepIncrement = 1
-                if playerIndex == 1:
-                    stepIncrement = -1
-                print(f"{player.name} takes a step forward.")
-                player.step(stepIncrement)
-                
-            self.gameRound += 1
-            
-        loserIndex = (self.winnerIndex + 1) % 2
+        self.verbose = wasVerbose
+        self.dramaTiming = wasDramaTiming
+        return {"count":count, "player1wins":player1wins}
+    
+    def runOptimalStrategyTrials(self, numberOfTrials=1000):
+        """
+        Run a number of duels using the optimal strategy.
+        This turns off the verbose and dramaTiming flags, if set
+        (and restores them afterward).
+
+        Parameters
+        ----------
+        numberOfTrials : TYPE, optional
+            DESCRIPTION. The default is 1000.
+
+        Returns
+        -------
+        A dictionary with they keys:
+            "count" - total duels run
+            "player1wins" - total number of player 1 wins
+
+        """
+        wasVerbose = self.verbose
+        wasDramaTiming = self.dramaTiming
         
-        print(f"\nThe duel ends after {self.gameRound} turns.")
-        print(f"The mighty {self.players[self.winnerIndex].name} is victorious.")
-        print(f"Sad clown {self.players[loserIndex].name} is weeping through layers of pie.")
-        print("\nFinal positions:")
-        print(self.players[0])
-        print(self.players[1])
+        self.verbose = False
+        self.dramaTiming = False
+        
+        count = 0
+        player1wins = 0
+        
+        for n in range(0, numberOfTrials):
+            results = self.runOptimalStrategyGame()
+            if results["winner"] == 0:
+                player1wins += 1
+            count += 1
+            
+        self.verbose = wasVerbose
+        self.dramaTiming = wasDramaTiming
+        return {"count":count, "player1wins":player1wins}
+    
+    
         
