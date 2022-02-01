@@ -77,7 +77,7 @@ class Duel:
             if timeToFire:
                 
                 print (f"\n{player.name} LAUNCHES A PIE!")
-                print (f" ({player.name}'s odds of hitting are {player.currentChance(opponent.position)*100} %)")
+                print (f" ({player.name}'s chance of hitting is {player.currentChance(opponent.position)*100:.2f} %)")
                 fireResult = player.fire(opponent.position)
                 
                 if True == fireResult:
@@ -132,7 +132,7 @@ class Duel:
             if timeToFire:
                 
                 print (f"\n{player.name} LAUNCHES A PIE!")
-                print (f" ({player.name}'s odds of hitting are {player.currentChance(opponent.position)*100} %)")
+                print (f" ({player.name}'s chance of hitting is {player.currentChance(opponent.position)*100:.2f} %)")
                 fireResult = player.fire(opponent.position)
                 
                 if True == fireResult:
